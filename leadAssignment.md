@@ -1,4 +1,6 @@
-# leadAssignmentCode.
+**#Lead Assignment Automation:**
+
+
 
 Trigger:
 
@@ -11,7 +13,7 @@ trigger LeadAssignmentTrigger on Lead (before insert) {
     }
 }
 
-Handlerclass:
+**Handlerclass:**
 
 public class LeadAssignmentHandler {
     
@@ -34,7 +36,7 @@ public class LeadAssignmentHandler {
 }
 
 
-LeadAssignmentHandler test class:
+**LeadAssignmentHandler test class:**
 
 @isTest
 public class LeadAssignmentHandlerTest {
@@ -73,8 +75,7 @@ public class LeadAssignmentHandlerTest {
 }
 
 
-
-leadhandler apex class:
+**leadhandler apex class:**
 
 public class LeadTriggerHandler {
     
@@ -95,7 +96,7 @@ public class LeadTriggerHandler {
 }
 
 
-leadHandler test class:
+**leadHandler test class:**
 
 
 @isTest
@@ -128,3 +129,81 @@ public class LeadTriggerHandlerTest {
         Test.stopTest();
     }
 }
+
+Opportunity Revenue Calculation:
+
+public class OpportunityRevenueCalculator {
+    
+    public static void calculateRevenue(Id opportunityId) {
+        
+       
+        Opportunity opp = [SELECT Id, Amount, Quantity__c, Product__c FROM Opportunity WHERE Id = :opportunityId];
+        
+       
+        Product2 product = [SELECT Id, UnitPrice FROM PricebookEntry WHERE Product2.Name = :opp.Product__c LIMIT 1];
+        
+        if (product != null) {
+            // Calculate the total expected revenue
+            Decimal totalRevenue = product.UnitPrice * opp.Quantity__c;
+            opp.Amount = totalRevenue;
+        
+            update opp;
+        }
+    }
+}
+
+**Opportunity Stage Update:**
+
+trigger OpportunityStageTrigger on Opportunity (before insert, before update) {
+    OpportunityStageHandler.updateOpportunityStage(Trigger.new);
+}
+Apex handler class:
+
+public class OpportunityStageHandler {
+    
+    public static void updateOpportunityStage(List<Opportunity> oppList) {
+      
+        Decimal amountThreshold = 50000; 
+    
+        Date thresholdDate = Date.today().addDays(30);
+        
+        for (Opportunity opp : oppList) {
+            if (opp.Expected_Close_Date__c <= thresholdDate && opp.Amount >= amountThreshold) {
+                opp.StageName = 'Closing';
+            }
+        }
+    }
+}
+
+
+**Test class for opportunity stage update**
+
+@isTest
+public class OpportunityStageHandlerTest {
+
+    @testSetup
+    static void setupTestData() {
+        List<Opportunity> opps = new List<Opportunity>{
+            new Opportunity(Name = 'Opportunity 1', StageName = 'Prospecting', CloseDate = Date.today().addDays(40), Expected_Close_Date__c = Date.today().addDays(40), Amount = 60000),
+            new Opportunity(Name = 'Opportunity 2', StageName = 'Prospecting', CloseDate = Date.today().addDays(20), Expected_Close_Date__c = Date.today().addDays(20), Amount = 40000),
+            new Opportunity(Name = 'Opportunity 3', StageName = 'Prospecting', CloseDate = Date.today().addDays(15), Expected_Close_Date__c = Date.today().addDays(15), Amount = 70000),
+            new Opportunity(Name = 'Opportunity 4', StageName = 'Prospecting', CloseDate = Date.today().addDays(50), Expected_Close_Date__c = Date.today().addDays(50), Amount = 30000)
+        };
+        insert opps;
+    }
+
+    @isTest
+    static void testUpdateOpportunityStage() {
+        List<Opportunity> oppList = [SELECT Id, Expected_Close_Date__c, Amount, StageName FROM Opportunity];
+
+        Test.startTest();
+        OpportunityStageHandler.updateOpportunityStage(oppList);
+        Test.stopTest();
+
+        for (Opportunity opp : [SELECT Expected_Close_Date__c, Amount, StageName FROM Opportunity]) {
+            Boolean shouldBeClosing = opp.Expected_Close_Date__c <= Date.today().addDays(30) && opp.Amount >= 50000;
+            System.assertEquals(shouldBeClosing ? 'Closing' : 'Prospecting', opp.StageName);
+        }
+    }
+}
+
